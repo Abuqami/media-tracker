@@ -251,7 +251,10 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
                 {providers.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {providers.map(p => (
-                      <a key={`${p.name}-${p.kind}`} href={finalUrl(p.name, exactUrl(p.name) || p.url)} target="_blank" rel="noopener noreferrer"
+                      // On mobile, navigate in the same tab so iOS/Android can hand
+                      // off to the installed app (new-tab opens suppress that).
+                      <a key={`${p.name}-${p.kind}`} href={finalUrl(p.name, exactUrl(p.name) || p.url)}
+                        {...(IS_MOBILE ? {} : { target: "_blank", rel: "noopener noreferrer" })}
                         className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-white/5 hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/40 rounded-lg text-sm text-white status-transition cursor-pointer group">
                         {p.logoUrl
                           ? <img src={p.logoUrl} alt="" className="w-6 h-6 rounded-md object-cover" />
