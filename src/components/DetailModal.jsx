@@ -52,7 +52,7 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
       load = Promise.all([
         tmdbFetch(tmdbKey, endpoint),
         tmdbFetch(tmdbKey, credPath),
-        fetchWatchProviders(tmdbKey, item.mediaType, item.id, region).catch(() => ({ providers: [], link: null })),
+        fetchWatchProviders(tmdbKey, item.mediaType, item.id, region, titleOf(item)).catch(() => ({ providers: [], link: null })),
       ]).then(([det, cred, watch]) => {
         setDetails({ ...det, providers: watch.providers, watchLink: watch.link });
         setCast((cred.cast || []).slice(0, 10));

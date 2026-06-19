@@ -24,11 +24,41 @@ export async function tmdbFetch(key, path, params = {}) {
   return res.json();
 }
 
+// Maps a TMDB/JustWatch provider name → a function that builds a direct
+// deep-link into that service's own search for the title. Services don't expose
+// a public "exact title page" URL, so search lands the viewer one click from
+// playing it, already inside the right app/site. Anything not listed falls back
+// to the JustWatch options page. Keys are matched case-insensitively as
+// substrings, so "Netflix" matches "Netflix basic with Ads", etc.
+const PROVIDER_SEARCH = [
+  [/netflix/,                  t => `https://www.netflix.com/search?q=${t}`],
+  [/disney/,                   t => `https://www.disneyplus.com/search?q=${t}`],
+  [/amazon|prime video/,       t => `https://www.amazon.com/s?k=${t}&i=instant-video`],
+  [/hulu/,                     t => `https://www.hulu.com/search?q=${t}`],
+  [/max|hbo/,                  t => `https://play.max.com/search?q=${t}`],
+  [/apple tv/,                 t => `https://tv.apple.com/search?term=${t}`],
+  [/crunchyroll/,              t => `https://www.crunchyroll.com/search?q=${t}`],
+  [/paramount/,                t => `https://www.paramountplus.com/search/?query=${t}`],
+  [/peacock/,                  t => `https://www.peacocktv.com/search/results?q=${t}`],
+  [/starz|starzplay/,          t => `https://www.starz.com/us/en/search?q=${t}`],
+  [/shahid/,                   t => `https://shahid.mbc.net/en/search?q=${t}`],
+  [/osn/,                      t => `https://www.osnplus.com/en-ae/search?q=${t}`],
+  [/google play/,              t => `https://play.google.com/store/search?q=${t}&c=movies`],
+  [/youtube/,                  t => `https://www.youtube.com/results?search_query=${t}`],
+];
+
+function providerSearchUrl(name, title, fallback) {
+  if (!title) return fallback;
+  const q = encodeURIComponent(title);
+  const hit = PROVIDER_SEARCH.find(([re]) => re.test(name.toLowerCase()));
+  return hit ? hit[1](q) : fallback;
+}
+
 // ─── "Where to watch" (TMDB → JustWatch data) ─────────────────────────────────
-// Returns streaming/rent/buy providers for the viewer's region. TMDB only gives
-// one JustWatch deep-link per region (not per provider), so every provider opens
-// that page — where the user picks the service and is sent on to watch.
-export async function fetchWatchProviders(key, mediaType, id, region = "US") {
+// Returns streaming/rent/buy providers for the viewer's region. Each provider
+// deep-links straight into its own service (a search for the title); unknown
+// services fall back to the JustWatch options page TMDB gives us.
+export async function fetchWatchProviders(key, mediaType, id, region = "US", title = "") {
   const path = mediaType === "Movie" ? `/movie/${id}/watch/providers` : `/tv/${id}/watch/providers`;
   const data = await tmdbFetch(key, path);
   const map = data.results || {};
@@ -40,7 +70,7 @@ export async function fetchWatchProviders(key, mediaType, id, region = "US") {
   const toProv = (arr, kind) => (arr || []).map(p => ({
     name: p.provider_name,
     logoUrl: p.logo_path ? `${IMG.logo}${p.logo_path}` : null,
-    url: r.link,                       // JustWatch page for this title + region
+    url: providerSearchUrl(p.provider_name, title, r.link),  // straight into the service
     kind,
   }));
   const seen = new Set();

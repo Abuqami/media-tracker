@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { TrendingUp, ListFilter, Loader2 } from "lucide-react";
+import { TrendingUp, ListFilter } from "lucide-react";
 import { useAuth } from "./auth";
 import { api } from "./lib/api";
 import { loadLibrary } from "./lib/tmdb";
@@ -307,17 +307,65 @@ export default function App() {
   );
 }
 
-// ─── Library loading state ────────────────────────────────────────────────────
+// ─── Library loading state — a pressable jumping gecko ──────────────────────────
 function LibraryLoading({ progress }) {
+  // `leap` is a counter; bumping it re-mounts the leap animation on every press.
+  const [leap, setLeap] = useState(0);
+  const poke = () => setLeap(n => n + 1);
+
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <Loader2 className="w-8 h-8 text-purple-400 animate-spin mb-4" />
-      <p className="text-white text-sm font-semibold mb-3">Loading your media universe…</p>
-      <div className="w-56 h-2 bg-[#1a1a24] rounded-full overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-purple-600 to-rose-500 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
-      </div>
-      <p className="text-[#8b8ba8] text-xs mt-3">{progress}%</p>
+    <div className="flex flex-col items-center justify-center py-24 text-center select-none">
+      <button onClick={poke} aria-label="Boop the gecko"
+        title="Press me!"
+        className="relative w-48 h-48 mb-3 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50 rounded-full">
+        {/* hopping gecko (a fresh leap animation each press via the key) */}
+        <div key={leap} className={leap ? "gecko-leap w-full h-full" : "gecko-hop w-full h-full"}>
+          <Gecko flick={leap > 0} flickKey={leap} />
+        </div>
+        {/* ground shadow */}
+        <div className="gecko-shadow absolute -bottom-1 left-1/2 -translate-x-1/2 w-28 h-3.5 rounded-full bg-emerald-950/60 blur-[2px]" />
+      </button>
+      <p className="text-white text-sm font-semibold mb-1">Loading your media universe…</p>
+      <p className="text-[#8b8ba8] text-xs">{progress}% · <span className="text-emerald-400/80">press the gecko</span></p>
     </div>
+  );
+}
+
+// A little cartoon gecko. `flick` flicks its tongue out (keyed so it re-fires).
+function Gecko({ flick, flickKey }) {
+  return (
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_6px_10px_rgba(16,185,129,0.25)]">
+      <defs>
+        <linearGradient id="gk" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#34d399" />
+          <stop offset="100%" stopColor="#059669" />
+        </linearGradient>
+      </defs>
+      {/* curled tail */}
+      <path d="M30 64 Q12 64 14 48 Q15 40 22 42" fill="none" stroke="url(#gk)" strokeWidth="7" strokeLinecap="round" />
+      {/* legs */}
+      <path d="M40 66 L33 78 M58 66 L66 78" stroke="#059669" strokeWidth="6" strokeLinecap="round" />
+      {/* body */}
+      <ellipse cx="50" cy="56" rx="22" ry="15" fill="url(#gk)" />
+      {/* head */}
+      <ellipse cx="68" cy="44" rx="16" ry="13" fill="url(#gk)" />
+      {/* spots */}
+      <circle cx="46" cy="52" r="2.4" fill="#a7f3d0" opacity="0.8" />
+      <circle cx="55" cy="60" r="2" fill="#a7f3d0" opacity="0.8" />
+      <circle cx="40" cy="60" r="1.8" fill="#a7f3d0" opacity="0.8" />
+      {/* tongue (flicks out toward a "bug") */}
+      {flick && (
+        <g key={flickKey} className="gecko-tongue">
+          <line x1="82" y1="46" x2="96" y2="42" stroke="#f43f5e" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="97" cy="41" r="3" fill="#fbbf24" />
+        </g>
+      )}
+      {/* eye */}
+      <circle cx="72" cy="40" r="5.5" fill="#fff" />
+      <circle cx="73.5" cy="40.5" r="2.8" fill="#0e0e16" />
+      {/* smile */}
+      <path d="M74 50 Q80 53 83 49" fill="none" stroke="#065f46" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   );
 }
 
