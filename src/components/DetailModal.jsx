@@ -25,8 +25,13 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
   const [rating, setRating]     = useState(myReview?.rating || 0);
   const [comment, setComment]   = useState(myReview?.comment || "");
   const [favorite, setFavorite] = useState(!!myReview?.is_favorite);
+  const [pSeason, setPSeason]   = useState(myReview?.progress_season ?? null);
+  const [pEpisode, setPEpisode] = useState(myReview?.progress_episode ?? null);
   const [saving, setSaving]     = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+
+  // Exact "where to watch" deep-links keyed by normalised service name (Watchmode).
+  const [watchExact, setWatchExact] = useState({});
 
   const source   = sourceOf(item);
   const isAnime  = item.mediaType === "Anime";
@@ -73,6 +78,36 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
 
   useEffect(() => { loadCommunity(); }, [loadCommunity]);
 
+  // Exact per-service deep-links (Watchmode). Only TMDB items carry a real TMDB
+  // id; AniList/MAL/TVmaze ids would resolve to the wrong title, so skip them.
+  useEffect(() => {
+    setWatchExact({});
+    if (source !== "tmdb") return;
+    const region = (navigator.language || "en-US").split("-")[1]?.toUpperCase() || "US";
+    api.getWatchSources(item.id, item.mediaType)
+      .then(({ sources }) => {
+        if (!sources?.length) return;
+        const map = {};
+        const add = s => {
+          const k = (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (k && !map[k]) map[k] = s.web_url;
+        };
+        sources.filter(s => s.region === region).forEach(add);  // prefer my region
+        sources.forEach(add);                                   // then any region
+        setWatchExact(map);
+      })
+      .catch(() => {});
+  }, [item.id, item.mediaType, source]);
+
+  // Best deep-link for a provider: exact title page if Watchmode has it, else
+  // the service-search link TMDB gave us.
+  const exactUrl = name => {
+    const norm = (name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (watchExact[norm]) return watchExact[norm];
+    const hit = Object.keys(watchExact).find(k => k.includes(norm) || norm.includes(k));
+    return hit ? watchExact[hit] : null;
+  };
+
   // Esc to close + lock scroll
   useEffect(() => {
     const onKey = e => { if (e.key === "Escape") onClose(); };
@@ -84,7 +119,10 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(item, { status, rating: rating || null, comment: comment.trim() || null, isFavorite: favorite });
+      await onSave(item, {
+        status, rating: rating || null, comment: comment.trim() || null, isFavorite: favorite,
+        progressSeason: pSeason || null, progressEpisode: pEpisode || null,
+      });
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
       loadCommunity();
@@ -97,6 +135,7 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
     try {
       await onDelete(myReview.id, item);
       setStatus(null); setRating(0); setComment(""); setFavorite(false);
+      setPSeason(null); setPEpisode(null);
       loadCommunity();
     } finally { setSaving(false); }
   };
@@ -197,7 +236,7 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
                 {providers.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {providers.map(p => (
-                      <a key={`${p.name}-${p.kind}`} href={p.url} target="_blank" rel="noopener noreferrer"
+                      <a key={`${p.name}-${p.kind}`} href={exactUrl(p.name) || p.url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-white/5 hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/40 rounded-lg text-sm text-white status-transition cursor-pointer group">
                         {p.logoUrl
                           ? <img src={p.logoUrl} alt="" className="w-6 h-6 rounded-md object-cover" />
@@ -246,6 +285,28 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
                   <div className="py-1.5"><StarRating value={rating} onChange={setRating} size={18} /></div>
                 </div>
               </div>
+
+              {/* ── Episode progress (episodic titles only) ── */}
+              {!isMovie && (
+                <div>
+                  <label className="text-[11px] font-semibold text-[#8b8ba8] uppercase tracking-wider mb-1.5 block">
+                    Where I've reached
+                    {(pSeason || pEpisode) && (
+                      <span className="text-blue-400 normal-case tracking-normal">
+                        {" · "}{pSeason ? `S${pSeason}` : ""}{pSeason && pEpisode ? " " : ""}{pEpisode ? `E${pEpisode}` : ""}
+                      </span>
+                    )}
+                  </label>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {!isAnime && <Stepper label="Season" value={pSeason} onChange={setPSeason} max={seasons || undefined} />}
+                    <Stepper label="Episode" value={pEpisode} onChange={setPEpisode} />
+                    {(pSeason || pEpisode) && (
+                      <button onClick={() => { setPSeason(null); setPEpisode(null); }}
+                        className="text-xs text-[#8b8ba8] hover:text-rose-400 cursor-pointer self-end pb-1.5">Clear</button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="text-[11px] font-semibold text-[#8b8ba8] uppercase tracking-wider mb-1.5 block">My thoughts</label>
@@ -311,6 +372,24 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Season / episode stepper ─────────────────────────────────────────────────
+function Stepper({ label, value, onChange, min = 1, max }) {
+  const v = value ?? null;
+  const clamp = n => (n < min ? null : (max ? Math.min(n, max) : n));
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] text-[#8b8ba8] uppercase tracking-wider">{label}</span>
+      <div className="flex items-center bg-[#0e0e16] border border-[#2a2a3a] rounded-lg overflow-hidden">
+        <button onClick={() => onChange(clamp((v ?? min) - 1))}
+          className="w-8 h-8 flex items-center justify-center text-[#8b8ba8] hover:text-white hover:bg-white/5 cursor-pointer transition-colors text-lg leading-none">−</button>
+        <span className="w-9 text-center text-sm font-semibold text-white tabular-nums">{v ?? "—"}</span>
+        <button onClick={() => onChange(clamp((v ?? min - 1) + 1))}
+          className="w-8 h-8 flex items-center justify-center text-[#8b8ba8] hover:text-white hover:bg-white/5 cursor-pointer transition-colors text-lg leading-none">+</button>
       </div>
     </div>
   );

@@ -7,6 +7,11 @@ export default function MediaCard({ item, review, onStatusChange, onSelect }) {
   const rating = item.vote_average ? item.vote_average.toFixed(1) : "—";
   const status = review?.status || null;
   const fav    = !!review?.is_favorite;
+  const pS     = review?.progress_season;
+  const pE     = review?.progress_episode;
+  const progress = (pS || pE)
+    ? `${pS ? `S${pS}` : ""}${pS && pE ? " " : ""}${pE ? `E${pE}` : ""}`
+    : null;
 
   return (
     <div
@@ -43,6 +48,9 @@ export default function MediaCard({ item, review, onStatusChange, onSelect }) {
               {item.mediaType}
             </span>
             {yearOf(item) && <span className="text-[11px] text-[#8b8ba8]">{yearOf(item)}</span>}
+            {progress && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-blue-300 bg-blue-500/15 ring-1 ring-blue-500/30 tracking-wide">{progress}</span>
+            )}
           </div>
         </div>
 

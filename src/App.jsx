@@ -111,10 +111,13 @@ export default function App() {
       rating:     fields.rating     !== undefined ? fields.rating     : (existing.rating ?? null),
       comment:    fields.comment    !== undefined ? fields.comment    : (existing.comment ?? null),
       isFavorite: fields.isFavorite !== undefined ? fields.isFavorite : !!existing.is_favorite,
+      progressSeason:  fields.progressSeason  !== undefined ? fields.progressSeason  : (existing.progress_season  ?? null),
+      progressEpisode: fields.progressEpisode !== undefined ? fields.progressEpisode : (existing.progress_episode ?? null),
     };
 
     // Nothing left to track → remove the review entirely.
-    const empty = !merged.status && !merged.rating && !merged.comment && !merged.isFavorite;
+    const empty = !merged.status && !merged.rating && !merged.comment && !merged.isFavorite
+      && !merged.progressSeason && !merged.progressEpisode;
     if (empty && existing.id) {
       await api.deleteReview(existing.id, user.id);
       setMyReviews(prev => { const n = { ...prev }; delete n[uid]; return n; });

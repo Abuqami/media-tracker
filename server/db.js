@@ -36,6 +36,8 @@ db.exec(`
     comment       TEXT,
     status        TEXT,
     is_favorite   INTEGER NOT NULL DEFAULT 0,
+    progress_season  INTEGER,
+    progress_episode INTEGER,
     created_at    INTEGER NOT NULL,
     updated_at    INTEGER NOT NULL,
     UNIQUE(user_id, media_id, media_type),
@@ -44,7 +46,23 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_reviews_media ON reviews(media_id, media_type);
   CREATE INDEX IF NOT EXISTS idx_reviews_user  ON reviews(user_id);
+
+  -- Cached "where to watch" deep-links per title (from Watchmode), so we don't
+  -- spend an API call every time a modal opens. Refreshed when stale.
+  CREATE TABLE IF NOT EXISTS watch_cache (
+    media_id    INTEGER NOT NULL,
+    media_type  TEXT NOT NULL,
+    sources     TEXT NOT NULL,   -- JSON array of { name, type, region, web_url }
+    fetched_at  INTEGER NOT NULL,
+    PRIMARY KEY (media_id, media_type)
+  );
 `);
+
+// ── Migration: add progress columns to databases created before this feature.
+// CREATE TABLE IF NOT EXISTS won't alter an existing table, so add them here.
+const reviewCols = db.prepare("PRAGMA table_info(reviews)").all().map(c => c.name);
+if (!reviewCols.includes("progress_season"))  db.exec("ALTER TABLE reviews ADD COLUMN progress_season INTEGER");
+if (!reviewCols.includes("progress_episode")) db.exec("ALTER TABLE reviews ADD COLUMN progress_episode INTEGER");
 
 const AVATAR_COLORS = [
   "#a855f7", "#e11d48", "#0891b2", "#16a34a", "#d97706",
@@ -106,16 +124,19 @@ const _reviewByUserMedia = db.prepare(
 const _insertReview = db.prepare(`
   INSERT INTO reviews
     (id, user_id, media_id, media_type, media_title, media_poster, media_year,
-     rating, comment, status, is_favorite, created_at, updated_at)
+     rating, comment, status, is_favorite, progress_season, progress_episode,
+     created_at, updated_at)
   VALUES
     (@id, @user_id, @media_id, @media_type, @media_title, @media_poster, @media_year,
-     @rating, @comment, @status, @is_favorite, @created_at, @updated_at)
+     @rating, @comment, @status, @is_favorite, @progress_season, @progress_episode,
+     @created_at, @updated_at)
 `);
 const _updateReview = db.prepare(`
   UPDATE reviews SET
     media_title = @media_title, media_poster = @media_poster, media_year = @media_year,
     rating = @rating, comment = @comment, status = @status,
-    is_favorite = @is_favorite, updated_at = @updated_at
+    is_favorite = @is_favorite, progress_season = @progress_season,
+    progress_episode = @progress_episode, updated_at = @updated_at
   WHERE id = @id
 `);
 const _deleteReview = db.prepare("DELETE FROM reviews WHERE id = ? AND user_id = ?");
@@ -158,6 +179,8 @@ export function upsertReview(userId, payload) {
     comment: payload.comment ?? null,
     status: payload.status ?? null,
     is_favorite: payload.isFavorite ? 1 : 0,
+    progress_season: payload.progressSeason ?? null,
+    progress_episode: payload.progressEpisode ?? null,
     updated_at: now,
   };
 
@@ -177,5 +200,30 @@ export function deleteReview(userId, reviewId) {
 export function getReviewsByUser(userId)   { return _reviewsByUser.all(userId); }
 export function getReviewsByMedia(id, type){ return _reviewsByMedia.all(id, type); }
 export function getFeed()                  { return _feed.all(); }
+
+// ─── "Where to watch" cache ───────────────────────────────────────────────────
+const _getWatch = db.prepare("SELECT sources, fetched_at FROM watch_cache WHERE media_id = ? AND media_type = ?");
+const _setWatch = db.prepare(`
+  INSERT INTO watch_cache (media_id, media_type, sources, fetched_at)
+  VALUES (@media_id, @media_type, @sources, @fetched_at)
+  ON CONFLICT(media_id, media_type) DO UPDATE SET sources = @sources, fetched_at = @fetched_at
+`);
+
+// Returns the cached sources array if present and newer than maxAgeMs, else null.
+export function getWatchCache(mediaId, mediaType, maxAgeMs) {
+  const row = _getWatch.get(Number(mediaId), String(mediaType));
+  if (!row) return null;
+  if (maxAgeMs && Date.now() - row.fetched_at > maxAgeMs) return null;
+  try { return JSON.parse(row.sources); } catch { return null; }
+}
+
+export function setWatchCache(mediaId, mediaType, sources) {
+  _setWatch.run({
+    media_id: Number(mediaId),
+    media_type: String(mediaType),
+    sources: JSON.stringify(sources),
+    fetched_at: Date.now(),
+  });
+}
 
 export default db;

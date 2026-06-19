@@ -26,4 +26,5 @@ export const api = {
   saveReview:     (body)             => req("/reviews", { method: "POST", body: JSON.stringify(body) }),
   deleteReview:   (id, userId)       => req(`/reviews/${id}`, { method: "DELETE", body: JSON.stringify({ userId }) }),
   getFeed:        ()                 => req("/feed"),
+  getWatchSources:(mediaId, type)    => req(`/watch?mediaId=${mediaId}&mediaType=${encodeURIComponent(type)}`),
 };
