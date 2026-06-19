@@ -110,18 +110,6 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
     return hit ? watchExact[hit] : null;
   };
 
-  // On phones, nudge known services to open their installed app instead of the
-  // browser. Best-effort: only services with a graceful app-link are rewritten
-  // (Amazon's host falls back to a "get the app" page when it isn't installed).
-  const finalUrl = (name, url) => {
-    if (!IS_MOBILE || !url) return url;
-    const n = (name || "").toLowerCase();
-    if (/prime|amazon/.test(n)) {
-      const gti = url.match(/primevideo\.com\/detail\/([^/?#]+)/)?.[1];
-      if (gti) return `https://watch.amazon.com/detail?gti=${gti}`;
-    }
-    return url;   // Netflix / YouTube / etc. already open their app via the https link
-  };
 
   // Esc to close + lock scroll
   useEffect(() => {
@@ -251,9 +239,12 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
                 {providers.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {providers.map(p => (
-                      // On mobile, navigate in the same tab so iOS/Android can hand
-                      // off to the installed app (new-tab opens suppress that).
-                      <a key={`${p.name}-${p.kind}`} href={finalUrl(p.name, exactUrl(p.name) || p.url)}
+                      // The exact Watchmode web_url (e.g. primevideo.com/detail/{GTI})
+                      // is the canonical title URL each app deep-links on. On mobile we
+                      // navigate in the same tab so iOS/Android hand off to the installed
+                      // app on that specific title (new-tab opens suppress the handoff,
+                      // and Amazon's generic watch.amazon.com handoff lost the title).
+                      <a key={`${p.name}-${p.kind}`} href={exactUrl(p.name) || p.url}
                         {...(IS_MOBILE ? {} : { target: "_blank", rel: "noopener noreferrer" })}
                         className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-white/5 hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/40 rounded-lg text-sm text-white status-transition cursor-pointer group">
                         {p.logoUrl
