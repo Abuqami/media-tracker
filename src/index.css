@@ -15,16 +15,46 @@
 
 * { box-sizing: border-box; }
 
+html {
+  /* Stop iOS/Android from auto-inflating text in landscape. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background-color: #0a0a0f;
   color: #f1f0ff;
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* No grey flash when tapping buttons/links on touch screens. */
+  -webkit-tap-highlight-color: transparent;
+  /* Don't let the page rubber-band horizontally on phones. */
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
+  /* Fall back to dynamic viewport height where supported (mobile browser bars). */
+  min-height: 100dvh;
+}
+
+/* iOS Safari zooms the whole page in when you focus an input whose text is
+   smaller than 16px. Force at least 16px on phones so tapping a field never
+   triggers that jarring zoom. */
+@media (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Respect the iPhone notch / home indicator. */
+.safe-top    { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Give touch targets a comfortable minimum without changing visuals elsewhere. */
+@media (hover: none) {
+  button, a, [role="button"] { touch-action: manipulation; }
 }
 
 .card-hover {

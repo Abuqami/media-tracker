@@ -234,11 +234,11 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1 bg-[#111118] border border-[#2a2a3a] p-1 rounded-xl self-start sm:self-auto">
+                <div className="flex items-center gap-1 bg-[#111118] border border-[#2a2a3a] p-1 rounded-xl self-start sm:self-auto max-w-full overflow-x-auto scrollbar-hide">
                   <ListFilter className="w-4 h-4 text-[#8b8ba8] ml-1.5 mr-0.5 shrink-0" />
                   {FILTERS.map(f => (
                     <button key={f} onClick={() => changeType(f)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold status-transition cursor-pointer
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold status-transition cursor-pointer shrink-0
                         ${typeFilter === f ? "bg-purple-600 text-white shadow-lg shadow-purple-600/25" : "text-[#8b8ba8] hover:text-white hover:bg-white/5"}`}>
                       {f}
                     </button>
@@ -299,7 +299,7 @@ export default function App() {
         </>
       )}
 
-      <footer className="border-t border-[#2a2a3a] py-5 text-center space-y-1">
+      <footer className="border-t border-[#2a2a3a] py-5 text-center space-y-1 safe-bottom">
         <p className="text-white text-sm font-semibold" dir="rtl">عبودكا للافلام</p>
         <p className="text-[#8b8ba8] text-xs">Powered by TMDB · {media.length.toLocaleString()} titles</p>
       </footer>

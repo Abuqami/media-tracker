@@ -11,8 +11,8 @@ export default function Navbar({ page, onNavigate, search, onSearch, onRefresh }
   const { user, logout } = useAuth();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#2a2a3a] bg-[#0a0a0f]/90 backdrop-blur-xl">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 sm:gap-4">
+    <header className="sticky top-0 z-40 border-b border-[#2a2a3a] bg-[#0a0a0f]/90 backdrop-blur-xl safe-top">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center gap-2 sm:gap-4">
 
         {/* Brand */}
         <button onClick={() => onNavigate({ page: "browse" })} className="flex items-center gap-2.5 shrink-0 cursor-pointer">
