@@ -64,8 +64,25 @@ commands are running, everyone uses the same shared lists, ratings, and reviews.
 
 ## 🧩 Tech
 
-| Layer    | Stack                                      |
-|----------|--------------------------------------------|
-| Frontend | React 19, Vite, Tailwind CSS, lucide-react |
-| Backend  | Express 5, better-sqlite3                  |
-| Data     | TMDB API (posters, metadata, cast)         |
+| Layer    | Stack                                                  |
+|----------|--------------------------------------------------------|
+| Frontend | React 19, Vite, Tailwind CSS, lucide-react             |
+| Backend  | Express 5, better-sqlite3                              |
+| Data     | TMDB (metadata/cast) · Watchmode (where-to-watch links)|
+
+---
+
+## 🚧 Future enhancements
+
+Already shipped: episode-progress tracking (where you've reached per show), a pressable
+jumping-gecko loader, and "Where to watch" buttons that open the **exact title** on each service.
+
+Next up — **reliable "open in the installed app" on mobile:**
+
+- The watch buttons use the free Watchmode plan, which returns **web** links and is locked to the
+  **UAE (AE)** region. On a phone this opens the app's home (or the browser) rather than the exact
+  title, because the AE title-id may not match the viewer's regional catalog.
+- The fix is a **paid Watchmode tier**, which returns the real `ios_url` / `android_url` app
+  deep-links and the viewer's own region. Once on a paid key, switch the mobile watch buttons to use
+  those deep-link fields (see `src/components/DetailModal.jsx` → the provider links, and
+  `server/index.js` → `fetchWatchmodeSources`).
