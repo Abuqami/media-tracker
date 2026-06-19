@@ -11,6 +11,7 @@ export const IMG = {
   posterLg:  "https://image.tmdb.org/t/p/w500",
   profile:   "https://image.tmdb.org/t/p/w185",
   backdrop:  "https://image.tmdb.org/t/p/w1280",
+  logo:      "https://image.tmdb.org/t/p/w92",
 };
 
 export async function tmdbFetch(key, path, params = {}) {
@@ -21,6 +22,35 @@ export async function tmdbFetch(key, path, params = {}) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(res.status === 401 ? "invalid_key" : "api_error");
   return res.json();
+}
+
+// ─── "Where to watch" (TMDB → JustWatch data) ─────────────────────────────────
+// Returns streaming/rent/buy providers for the viewer's region. TMDB only gives
+// one JustWatch deep-link per region (not per provider), so every provider opens
+// that page — where the user picks the service and is sent on to watch.
+export async function fetchWatchProviders(key, mediaType, id, region = "US") {
+  const path = mediaType === "Movie" ? `/movie/${id}/watch/providers` : `/tv/${id}/watch/providers`;
+  const data = await tmdbFetch(key, path);
+  const map = data.results || {};
+  // Prefer the viewer's region, then a few common ones, then whatever exists.
+  const pick = [region, "US", "GB", "SA", "AE", "CA", "AU"].find(r => map[r]) || Object.keys(map)[0];
+  const r = pick ? map[pick] : null;
+  if (!r) return { providers: [], link: null, region: null };
+
+  const toProv = (arr, kind) => (arr || []).map(p => ({
+    name: p.provider_name,
+    logoUrl: p.logo_path ? `${IMG.logo}${p.logo_path}` : null,
+    url: r.link,                       // JustWatch page for this title + region
+    kind,
+  }));
+  const seen = new Set();
+  const providers = [
+    ...toProv(r.flatrate, "stream"),
+    ...toProv(r.rent, "rent"),
+    ...toProv(r.buy, "buy"),
+  ].filter(p => (seen.has(p.name) ? false : (seen.add(p.name), true)));
+
+  return { providers, link: r.link, region: pick };
 }
 
 // Loads the library from four sources with a progress callback:

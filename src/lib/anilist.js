@@ -90,6 +90,7 @@ query ($id: Int) {
     duration
     format
     genres
+    externalLinks { site url type }
     characters(sort: [ROLE, RELEVANCE], perPage: 12) {
       edges { role node { id name { full } image { large } } }
     }
@@ -108,6 +109,10 @@ export async function fetchAnilistDetails(id) {
     runtime: m.duration || null,           // minutes per episode
     number_of_episodes: m.episodes || null,
     format: m.format || null,
+    // Direct "watch here" links AniList tracks (Crunchyroll, Netflix, …).
+    providers: (m.externalLinks || [])
+      .filter(l => l.type === "STREAMING" && l.url)
+      .map(l => ({ name: l.site, url: l.url, logoUrl: null, kind: "stream" })),
     cast: (m.characters?.edges || []).map(e => ({
       id: e.node.id,
       name: e.node.name?.full || "?",

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   X, Star, Clock, Calendar, Users, PlayCircle, Heart,
-  MessageSquare, Save, Trash2, Loader2,
+  MessageSquare, Save, Trash2, Loader2, ExternalLink, Play,
 } from "lucide-react";
 import { TYPE_BADGE, STATUS_META, titleOf, yearOf, CARD_COLORS, ID_OFFSET, sourceOf } from "../lib/constants";
-import { tmdbFetch, IMG } from "../lib/tmdb";
+import { tmdbFetch, fetchWatchProviders, IMG } from "../lib/tmdb";
 import { fetchAnilistDetails } from "../lib/anilist";
 import { fetchJikanDetails } from "../lib/jikan";
 import { fetchTvmazeDetails } from "../lib/tvmaze";
@@ -48,8 +48,15 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
       const tvId = item.tvmaze_id ?? (Number(item.id) - ID_OFFSET.tvmaze);
       load = fetchTvmazeDetails(tvId).then(d => { setDetails(d); setCast(d.cast || []); });
     } else {
-      load = Promise.all([tmdbFetch(tmdbKey, endpoint), tmdbFetch(tmdbKey, credPath)])
-        .then(([det, cred]) => { setDetails(det); setCast((cred.cast || []).slice(0, 10)); });
+      const region = (navigator.language || "en-US").split("-")[1]?.toUpperCase() || "US";
+      load = Promise.all([
+        tmdbFetch(tmdbKey, endpoint),
+        tmdbFetch(tmdbKey, credPath),
+        fetchWatchProviders(tmdbKey, item.mediaType, item.id, region).catch(() => ({ providers: [], link: null })),
+      ]).then(([det, cred, watch]) => {
+        setDetails({ ...det, providers: watch.providers, watchLink: watch.link });
+        setCast((cred.cast || []).slice(0, 10));
+      });
     }
     load.catch(() => {}).finally(() => setLoadDet(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,6 +108,8 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
   const seasons = details?.number_of_seasons;
   const episodes = details?.number_of_episodes;
   const tagline = details?.tagline;
+  const providers = details?.providers || [];
+  const watchLink = details?.watchLink || null;
   const color = CARD_COLORS[item.id % CARD_COLORS.length];
   const backdropSrc = item.backdrop_url || details?.backdrop_url
     || (item.backdrop_path ? `${IMG.backdrop}${item.backdrop_path}` : null);
@@ -176,6 +185,41 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
               <div>
                 <h3 className="text-xs font-semibold text-[#8b8ba8] uppercase tracking-widest mb-2">Overview</h3>
                 <p className="text-[#c8c8e0] text-sm leading-relaxed" dir="auto">{overview}</p>
+              </div>
+            )}
+
+            {/* ── Where to watch ── */}
+            {(providers.length > 0 || watchLink) && (
+              <div>
+                <h3 className="text-xs font-semibold text-[#8b8ba8] uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Play className="w-3.5 h-3.5 text-emerald-400" /> Where to watch
+                </h3>
+                {providers.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {providers.map(p => (
+                      <a key={`${p.name}-${p.kind}`} href={p.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-white/5 hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/40 rounded-lg text-sm text-white status-transition cursor-pointer group">
+                        {p.logoUrl
+                          ? <img src={p.logoUrl} alt="" className="w-6 h-6 rounded-md object-cover" />
+                          : <span className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center"><PlayCircle className="w-3.5 h-3.5 text-white" /></span>}
+                        <span className="font-medium">{p.name}</span>
+                        {p.kind && p.kind !== "stream" && <span className="text-[10px] text-[#8b8ba8] uppercase">{p.kind}</span>}
+                        <ExternalLink className="w-3 h-3 text-[#8b8ba8] group-hover:text-emerald-400" />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <a href={watchLink} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/40 rounded-lg text-sm text-white status-transition cursor-pointer">
+                    See streaming options <ExternalLink className="w-3 h-3 text-[#8b8ba8]" />
+                  </a>
+                )}
+                {providers.length > 0 && watchLink && (
+                  <a href={watchLink} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-[#8b8ba8] hover:text-emerald-400 mt-2 cursor-pointer">
+                    More options <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
             )}
 

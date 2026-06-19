@@ -69,6 +69,10 @@ export async function fetchJikanDetails(malId) {
     number_of_seasons: null,
     tagline: null,
     backdrop_url: null,
+    // MyAnimeList tracks legal streaming destinations (Crunchyroll, etc.).
+    providers: (a.streaming || [])
+      .filter(s => s.url)
+      .map(s => ({ name: s.name, url: s.url, logoUrl: null, kind: "stream" })),
     cast: (chars.data || []).slice(0, 12).map(c => ({
       id: c.character?.mal_id,
       name: c.character?.name || "?",

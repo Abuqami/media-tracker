@@ -45,6 +45,11 @@ export async function loadTvmazeShows(pages = 8, onTick, minWeight = 88) {
 // Full details for the modal, with embedded cast.
 export async function fetchTvmazeDetails(tvmazeId) {
   const s = await tget(`/shows/${tvmazeId}?embed=cast`);
+  // Where it airs / streams — only useful if there's a link to send people to.
+  const channel = s.webChannel?.name || s.network?.name;
+  const providers = s.officialSite
+    ? [{ name: channel || "Official site", url: s.officialSite, logoUrl: null, kind: "stream" }]
+    : [];
   return {
     genres: (s.genres || []).map((g, i) => ({ id: i, name: g })),
     overview: stripHtml(s.summary || ""),
@@ -53,6 +58,7 @@ export async function fetchTvmazeDetails(tvmazeId) {
     number_of_seasons: null,
     tagline: null,
     backdrop_url: null,
+    providers,
     cast: (s._embedded?.cast || []).slice(0, 12).map(c => ({
       id: c.person?.id,
       name: c.person?.name || "?",
