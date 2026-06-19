@@ -1,13 +1,8 @@
 import { useState, useEffect } from "react";
 import { Users, Star, Heart, Loader2, Activity } from "lucide-react";
 import { api } from "../lib/api";
-import { STATUS_META, titleOf } from "../lib/constants";
+import { STATUS_META, titleOf, reviewToItem } from "../lib/constants";
 import { Avatar, Name, Poster, EmptyState } from "./common";
-
-const reviewToItem = r => ({
-  id: r.media_id, mediaType: r.media_type,
-  title: r.media_title, media_poster: r.media_poster, media_year: r.media_year,
-});
 
 const timeAgo = ms => {
   const s = Math.floor((Date.now() - ms) / 1000);

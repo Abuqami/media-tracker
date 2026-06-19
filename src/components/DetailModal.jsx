@@ -3,8 +3,11 @@ import {
   X, Star, Clock, Calendar, Users, PlayCircle, Heart,
   MessageSquare, Save, Trash2, Loader2,
 } from "lucide-react";
-import { TYPE_BADGE, STATUS_META, titleOf, yearOf, CARD_COLORS } from "../lib/constants";
+import { TYPE_BADGE, STATUS_META, titleOf, yearOf, CARD_COLORS, ID_OFFSET, sourceOf } from "../lib/constants";
 import { tmdbFetch, IMG } from "../lib/tmdb";
+import { fetchAnilistDetails } from "../lib/anilist";
+import { fetchJikanDetails } from "../lib/jikan";
+import { fetchTvmazeDetails } from "../lib/tvmaze";
 import { api } from "../lib/api";
 import { Poster, Avatar, Name, StarRating } from "./common";
 import StatusDropdown from "./StatusDropdown";
@@ -25,17 +28,30 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
   const [saving, setSaving]     = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  const source   = sourceOf(item);
+  const isAnime  = item.mediaType === "Anime";
   const isMovie  = item.mediaType === "Movie";
   const endpoint = isMovie ? `/movie/${item.id}` : `/tv/${item.id}`;
   const credPath = isMovie ? `/movie/${item.id}/credits` : `/tv/${item.id}/aggregate_credits`;
+  const scoreLabel = { anilist: "AniList", mal: "MAL", tvmaze: "TVmaze", tmdb: "TMDB" }[source];
 
-  // Fetch TMDB details + credits
+  // Fetch details + cast from whichever API this item came from.
   useEffect(() => {
     setLoadDet(true);
-    Promise.all([tmdbFetch(tmdbKey, endpoint), tmdbFetch(tmdbKey, credPath)])
-      .then(([det, cred]) => { setDetails(det); setCast((cred.cast || []).slice(0, 10)); })
-      .catch(() => {})
-      .finally(() => setLoadDet(false));
+    let load;
+    if (source === "anilist") {
+      load = fetchAnilistDetails(item.id).then(d => { setDetails(d); setCast(d.cast || []); });
+    } else if (source === "mal") {
+      const malId = item.mal_id ?? (Number(item.id) - ID_OFFSET.mal);
+      load = fetchJikanDetails(malId).then(d => { setDetails(d); setCast(d.cast || []); });
+    } else if (source === "tvmaze") {
+      const tvId = item.tvmaze_id ?? (Number(item.id) - ID_OFFSET.tvmaze);
+      load = fetchTvmazeDetails(tvId).then(d => { setDetails(d); setCast(d.cast || []); });
+    } else {
+      load = Promise.all([tmdbFetch(tmdbKey, endpoint), tmdbFetch(tmdbKey, credPath)])
+        .then(([det, cred]) => { setDetails(det); setCast((cred.cast || []).slice(0, 10)); });
+    }
+    load.catch(() => {}).finally(() => setLoadDet(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id, item.mediaType]);
 
@@ -86,6 +102,8 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
   const episodes = details?.number_of_episodes;
   const tagline = details?.tagline;
   const color = CARD_COLORS[item.id % CARD_COLORS.length];
+  const backdropSrc = item.backdrop_url || details?.backdrop_url
+    || (item.backdrop_path ? `${IMG.backdrop}${item.backdrop_path}` : null);
 
   // Average community rating
   const rated = community.filter(r => r.rating);
@@ -105,8 +123,8 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
         <div className="overflow-y-auto flex-1 scrollbar-hide">
           {/* Backdrop */}
           <div className="relative h-52 sm:h-72 shrink-0 overflow-hidden bg-[#1a1a24]">
-            {item.backdrop_path && !backdropErr ? (
-              <img src={`${IMG.backdrop}${item.backdrop_path}`} alt="" className="w-full h-full object-cover" onError={() => setBackErr(true)} />
+            {backdropSrc && !backdropErr ? (
+              <img src={backdropSrc} alt="" className="w-full h-full object-cover" onError={() => setBackErr(true)} />
             ) : (
               <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${color}88, #0e0e16)` }} />
             )}
@@ -130,7 +148,7 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
                 <div className="flex items-center gap-1.5">
                   <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                   <span className="font-bold text-white text-sm">{item.vote_average ? item.vote_average.toFixed(1) : "—"}</span>
-                  <span className="text-[#8b8ba8] text-xs">TMDB</span>
+                  <span className="text-[#8b8ba8] text-xs">{scoreLabel}</span>
                 </div>
                 {avg && (
                   <div className="flex items-center gap-1.5">
@@ -139,8 +157,10 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
                     <span className="text-[#8b8ba8] text-xs">friends ({rated.length})</span>
                   </div>
                 )}
-                {runtime && <div className="flex items-center gap-1 text-[#8b8ba8] text-xs"><Clock className="w-3.5 h-3.5" />{fmtRuntime(runtime)}</div>}
-                {seasons && <div className="flex items-center gap-1 text-[#8b8ba8] text-xs"><PlayCircle className="w-3.5 h-3.5" />{seasons} season{seasons > 1 ? "s" : ""}{episodes ? ` · ${episodes} eps` : ""}</div>}
+                {runtime && <div className="flex items-center gap-1 text-[#8b8ba8] text-xs"><Clock className="w-3.5 h-3.5" />{fmtRuntime(runtime)}{isAnime ? "/ep" : ""}</div>}
+                {seasons
+                  ? <div className="flex items-center gap-1 text-[#8b8ba8] text-xs"><PlayCircle className="w-3.5 h-3.5" />{seasons} season{seasons > 1 ? "s" : ""}{episodes ? ` · ${episodes} eps` : ""}</div>
+                  : episodes ? <div className="flex items-center gap-1 text-[#8b8ba8] text-xs"><PlayCircle className="w-3.5 h-3.5" />{episodes} ep{episodes > 1 ? "s" : ""}</div> : null}
               </div>
             </div>
           </div>
@@ -233,8 +253,8 @@ export default function DetailModal({ item, tmdbKey, myReview, currentUser, onSa
                     return (
                       <div key={m.id} className="shrink-0 w-[72px] text-center">
                         <div className="w-14 h-14 rounded-full overflow-hidden bg-[#1a1a24] mx-auto mb-1.5 ring-1 ring-white/10">
-                          {m.profile_path
-                            ? <img src={`${IMG.profile}${m.profile_path}`} alt={m.name} loading="lazy" className="w-full h-full object-cover" />
+                          {m.profile_url || m.profile_path
+                            ? <img src={m.profile_url || `${IMG.profile}${m.profile_path}`} alt={m.name} loading="lazy" className="w-full h-full object-cover" />
                             : <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg bg-gradient-to-br from-purple-700 to-rose-700">{(m.name || "?")[0]}</div>}
                         </div>
                         <p className="text-white text-[10px] font-semibold leading-tight line-clamp-2">{m.name}</p>

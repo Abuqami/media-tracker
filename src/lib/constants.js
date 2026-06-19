@@ -30,3 +30,28 @@ export const containsArabic = (text = "") => /[؀-ۿݐ-ݿ]/.test(text);
 export const uidOf   = item => `${item.id ?? item.media_id}-${item.mediaType ?? item.media_type}`;
 export const titleOf = item => item.title || item.name || item.media_title || "Untitled";
 export const yearOf  = item => (item.release_date || item.first_air_date || item.media_year || "").slice(0, 4);
+
+// ─── Multi-source helpers ─────────────────────────────────────────────────────
+// Titles come from several APIs (TMDB, AniList, MyAnimeList, TVmaze). We keep
+// them in one numeric id space by offsetting the secondary anime/TV sources, so
+// uids stay unique AND a saved item's source can be recovered from its id alone.
+export const ID_OFFSET = { mal: 100_000_000, tvmaze: 200_000_000 };
+
+export function sourceOf(item) {
+  if (item.source) return item.source;
+  const id   = Number(item.id ?? item.media_id);
+  const type = item.mediaType ?? item.media_type;
+  if (type === "Anime") return id >= ID_OFFSET.mal ? "mal" : "anilist";
+  if (type === "TV" && id >= ID_OFFSET.tvmaze) return "tvmaze";
+  return "tmdb";
+}
+
+// Build the minimal "item" the detail modal can open from a saved review row.
+export const reviewToItem = r => ({
+  id: r.media_id, mediaType: r.media_type, source: sourceOf(r),
+  title: r.media_title, media_poster: r.media_poster, media_year: r.media_year,
+});
+
+// Normalised key used to drop the same show when it appears in two sources.
+export const titleKey = item =>
+  `${item.mediaType ?? item.media_type}::${titleOf(item).toLowerCase().replace(/[^a-z0-9]+/g, "")}`;

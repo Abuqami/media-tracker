@@ -29,8 +29,10 @@ body {
   -webkit-font-smoothing: antialiased;
   /* No grey flash when tapping buttons/links on touch screens. */
   -webkit-tap-highlight-color: transparent;
-  /* Don't let the page rubber-band horizontally on phones. */
-  overflow-x: hidden;
+  /* Clip stray horizontal overflow WITHOUT creating a scroll container.
+     (Plain `overflow-x: hidden` here can lock up vertical scrolling on
+     mobile browsers — `clip` avoids that; unsupported browsers ignore it.) */
+  overflow-x: clip;
 }
 
 #root {

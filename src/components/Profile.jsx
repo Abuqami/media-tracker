@@ -4,14 +4,8 @@ import {
   MessageSquare, Loader2,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { STATUS_META, titleOf, yearOf } from "../lib/constants";
+import { STATUS_META, titleOf, yearOf, reviewToItem } from "../lib/constants";
 import { Avatar, Name, Poster, EmptyState } from "./common";
-
-// Build a minimal "item" the detail modal can open from a saved review row.
-const reviewToItem = r => ({
-  id: r.media_id, mediaType: r.media_type,
-  title: r.media_title, media_poster: r.media_poster, media_year: r.media_year,
-});
 
 export default function Profile({ userId, currentUser, onBack, onSelectMedia }) {
   const [data, setData] = useState(null);

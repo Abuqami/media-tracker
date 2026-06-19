@@ -10,12 +10,16 @@ export function Poster({ item, imgBase = IMG.poster, rounded = "" }) {
   const [failed, setFailed] = useState(false);
   const Icon  = TYPE_ICON[item.mediaType || item.media_type] || Film;
   const color = CARD_COLORS[(item.id ?? item.media_id ?? 0) % CARD_COLORS.length];
-  // poster_path comes from a live TMDB item; media_poster is a path saved on a review.
-  const poster = item.poster_path
-    ? `${imgBase}${item.poster_path}`
-    : item.media_poster
-      ? `${IMG.poster}${item.media_poster}`
-      : null;
+  // poster_url is a full URL (AniList); poster_path is a live TMDB item;
+  // media_poster is what was saved on a review (a TMDB path, or an AniList URL).
+  const asImg = v => (v?.startsWith("http") ? v : `${IMG.poster}${v}`);
+  const poster = item.poster_url
+    ? item.poster_url
+    : item.poster_path
+      ? `${imgBase}${item.poster_path}`
+      : item.media_poster
+        ? asImg(item.media_poster)
+        : null;
 
   if (poster && !failed) {
     return (

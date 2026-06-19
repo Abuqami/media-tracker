@@ -126,7 +126,7 @@ export default function App() {
       mediaId: item.id ?? item.media_id,
       mediaType: item.mediaType ?? item.media_type,
       mediaTitle: titleOf(item),
-      mediaPoster: item.poster_path ?? item.media_poster ?? null,
+      mediaPoster: item.poster_url ?? item.poster_path ?? item.media_poster ?? null,
       mediaYear: yearOf(item) || null,
       ...merged,
     });
